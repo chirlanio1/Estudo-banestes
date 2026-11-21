@@ -2,7 +2,7 @@
 
 App de estudo (PWA) para o cargo Analista de TI – Desenvolvimento de Sistemas. Funciona sem internet depois de aberto uma vez. Os dados ficam no aparelho (faça backup em **Mais › Configurações**).
 
-**Abrir:** https://chirlanio1.github.io/estudo-banestes/
+**Abrir:** https://chirlanio1.github.io/Estudo-banestes/
 
 ## Instalar no tablet ou celular
 - **Android (Chrome):** abra o link › menu ⋮ › **Instalar app** (ou "Adicionar à tela inicial").

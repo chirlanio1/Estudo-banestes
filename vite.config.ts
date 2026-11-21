@@ -2,9 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// O app é publicado em https://<usuario>.github.io/estudo-banestes/
+// Caminhos relativos: o app funciona em qualquer endereço (o repositório se chama Estudo-banestes, com E maiúsculo).
 export default defineConfig({
-  base: '/estudo-banestes/',
+  base: './',
   define: { __APP_VERSION__: JSON.stringify('1.0.0') },
   plugins: [
     react(),
@@ -20,8 +20,8 @@ export default defineConfig({
         background_color: '#f6f4ef',
         display: 'standalone',
         orientation: 'any',
-        start_url: '/estudo-banestes/',
-        scope: '/estudo-banestes/',
+        start_url: './',
+        scope: './',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -31,7 +31,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,json,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallback: '/estudo-banestes/index.html'
+        navigateFallback: 'index.html'
       }
     })
   ],

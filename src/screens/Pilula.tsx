@@ -6,7 +6,7 @@ import { escolherQuestoes, embaralhar } from '../engine/selector';
 import { faseDe, semanaDe } from '../engine/scoring';
 import { sortearTopicos } from '../engine/priority';
 import { KITS } from '../data/kits';
-import { NOME_TOPICO } from '../data/edital';
+import { NOME_TOPICO, TOPICO_PARA_BLOCO } from '../data/edital';
 import type { Questao, Sessao } from '../types';
 import { QuestaoCard, type ResultadoQuestao } from '../components/QuestaoCard';
 import { KitView } from './Trilhas';
@@ -56,6 +56,13 @@ export function Pilula({ topico, tipo }: { topico?: string; tipo: 'pilula' | 'mi
         pre = embaralhar(ineditas).slice(0, 3);
         const excl = new Set(pre.map((q) => q.id));
         questoes = escolherQuestoes(ctx.banco, [t], 7, { ...sel, excluir: excl });
+        // banco ainda curto no tópico: completa com subtópicos do mesmo bloco (mais próximos do assunto)
+        if (questoes.length < 5) {
+          const bloco = TOPICO_PARA_BLOCO[t];
+          const irmaos = ctx.prios.filter((p) => p.bloco === bloco && p.topico !== t).map((p) => p.topico);
+          const ja = new Set([...excl, ...questoes.map((q) => q.id)]);
+          questoes = [...questoes, ...escolherQuestoes(ctx.banco, irmaos, 7 - questoes.length, { ...sel, excluir: ja })];
+        }
         // intercalação a partir da fase de consolidação: 2 questões de tópicos já vistos
         if (faseDe(semana).intercalar) {
           const vistos = ctx.prios.filter((p) => p.n > 0 && p.topico !== t);
