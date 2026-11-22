@@ -6,6 +6,8 @@ import { escolherQuestoes, embaralhar } from '../engine/selector';
 import { faseDe, semanaDe } from '../engine/scoring';
 import { sortearTopicos } from '../engine/priority';
 import { KITS } from '../data/kits';
+import { ritmoDe } from '../lib/ritmo';
+import { getConfig } from '../db';
 import { NOME_TOPICO, TOPICO_PARA_BLOCO } from '../data/edital';
 import type { Questao, Sessao } from '../types';
 import { QuestaoCard, type ResultadoQuestao } from '../components/QuestaoCard';
@@ -42,6 +44,7 @@ export function Pilula({ topico, tipo }: { topico?: string; tipo: 'pilula' | 'mi
   useEffect(() => {
     (async () => {
       const ctx = await contexto();
+      const rt = ritmoDe(await getConfig());
       let t = topico;
       if (!t || (tipo === 'esgotado' && !KITS[t])) t = escolherTopicoPilula(ctx.prios)?.topico;
       if (!t) return setVazio(true);
@@ -53,15 +56,15 @@ export function Pilula({ topico, tipo }: { topico?: string; tipo: 'pilula' | 'mi
       if (tipo === 'pilula') {
         // pré-teste só com questões inéditas do tópico
         const ineditas = ctx.banco.filter((q) => q.topico === t && !ctx.qstate.get(q.id)?.vistas);
-        pre = embaralhar(ineditas).slice(0, 3);
+        pre = embaralhar(ineditas).slice(0, rt.pre);
         const excl = new Set(pre.map((q) => q.id));
-        questoes = escolherQuestoes(ctx.banco, [t], 7, { ...sel, excluir: excl });
+        questoes = escolherQuestoes(ctx.banco, [t], rt.questoes, { ...sel, excluir: excl });
         // banco ainda curto no tópico: completa com subtópicos do mesmo bloco (mais próximos do assunto)
-        if (questoes.length < 5) {
+        if (questoes.length < Math.min(5, rt.questoes)) {
           const bloco = TOPICO_PARA_BLOCO[t];
           const irmaos = ctx.prios.filter((p) => p.bloco === bloco && p.topico !== t).map((p) => p.topico);
           const ja = new Set([...excl, ...questoes.map((q) => q.id)]);
-          questoes = [...questoes, ...escolherQuestoes(ctx.banco, irmaos, 7 - questoes.length, { ...sel, excluir: ja })];
+          questoes = [...questoes, ...escolherQuestoes(ctx.banco, irmaos, rt.questoes - questoes.length, { ...sel, excluir: ja })];
         }
         // intercalação a partir da fase de consolidação: 2 questões de tópicos já vistos
         if (faseDe(semana).intercalar) {
@@ -72,7 +75,7 @@ export function Pilula({ topico, tipo }: { topico?: string; tipo: 'pilula' | 'mi
         etapas = [...(pre.length ? (['pre'] as Etapa[]) : []), 'teoria', 'recordacao', 'questoes', 'captura', 'fim'];
       } else if (tipo === 'minima') {
         const tops = [t, ...sortearTopicos(ctx.prios.filter((p) => p.topico !== t), 2)];
-        questoes = escolherQuestoes(ctx.banco, tops, 5, sel);
+        questoes = escolherQuestoes(ctx.banco, tops, rt.minima, sel);
         etapas = ['cartoes', 'questoes', 'captura', 'fim'];
       } else {
         etapas = ['audio', 'cartoes', 'fim'];

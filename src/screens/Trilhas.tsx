@@ -92,7 +92,7 @@ export function TopicoDetalhe({ id }: { id: string }) {
         <h2 style={{ fontSize: 21 }}>{NOME_TOPICO[id]}</h2>
         <p className="small muted" style={{ margin: 0 }}>Domínio estimado {pct(p?.dominio)} · {p?.n ?? 0} respostas · {n} questões no banco</p>
         <div className="row" style={{ marginTop: 10 }}>
-          <button className="btn primary" onClick={() => nav.ir({ r: 'pilula', topico: id, tipo: 'pilula' })}>Fazer a pílula de 25 min</button>
+          <button className="btn primary" onClick={() => nav.ir({ r: 'pilula', topico: id, tipo: 'pilula' })}>Fazer uma pílula deste tópico</button>
           <button className="btn" disabled={!n} onClick={() => nav.ir({ r: 'pratica', modo: 'bloco', topicos: [id], titulo: NOME_TOPICO[id], n: 8 })}>Só questões</button>
         </div>
       </div>

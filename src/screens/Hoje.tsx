@@ -1,5 +1,6 @@
 import { useNav } from '../App';
-import { db } from '../db';
+import { db, getConfig } from '../db';
+import { ritmoDe } from '../lib/ritmo';
 import { missaoDoDia } from '../engine/missions';
 import { nivelDe, semanaAtual, sequencia } from '../engine/gamification';
 import { diasAte, hojeISO } from '../engine/scoring';
@@ -10,11 +11,12 @@ import { DATAS } from '../data/edital';
 export function Hoje() {
   const nav = useNav();
   const [dados, reload] = useAsync(async () => {
-    const [m, pts, dias, hojeLog] = await Promise.all([missaoDoDia(), pontosTotais(), diasCumpridos(), db.dias.get(hojeISO())]);
-    return { m, pts, dias, hojeLog };
+    const [m, pts, dias, hojeLog, cfg] = await Promise.all([missaoDoDia(), pontosTotais(), diasCumpridos(), db.dias.get(hojeISO()), getConfig()]);
+    return { m, pts, dias, hojeLog, cfg };
   });
   if (!dados) return <p className="muted">Carregando…</p>;
-  const { m, pts, dias, hojeLog } = dados;
+  const { m, pts, dias, hojeLog, cfg } = dados;
+  const rt = ritmoDe(cfg);
   const nivel = nivelDe(pts);
   const seq = sequencia(dias);
   const semana = semanaAtual(dias);
@@ -41,7 +43,7 @@ export function Hoje() {
           <span>{faltam > 0 ? `${faltam} dias para a prova` : faltam === 0 ? 'Hoje é a prova' : 'Prova realizada'}</span>
         </div>
         <h2 style={{ fontSize: 22, margin: '8px 0 4px' }}>
-          {feitoHoje ? 'Missão de hoje cumprida' : m.tipo === 'simulado' ? 'Hoje é dia de simulado' : m.tipo === 'esgotado' ? 'Missão leve: 10 minutos' : m.tipo === 'minima' ? 'Missão mínima: 15 minutos' : `Pílula de 25 min: ${m.nomeTopico ?? ''}`}
+          {feitoHoje ? 'Missão de hoje cumprida' : m.tipo === 'simulado' ? 'Hoje é dia de simulado' : m.tipo === 'esgotado' ? 'Missão leve: 10 minutos' : m.tipo === 'minima' ? 'Missão mínima: 15 minutos' : `Pílula de ${rt.minutos} min: ${m.nomeTopico ?? ''}`}
         </h2>
         <p className="muted small" style={{ margin: '0 0 12px' }}>{m.motivo.join(' · ')}</p>
         {m.tipo === 'simulado' ? (
@@ -56,6 +58,9 @@ export function Hoje() {
             Revisar {m.cartoes.vencidos + m.cartoes.novos} cartões (~{minutosCartoes} min)
           </button>
         )}
+        <button className="linkbtn tiny" onClick={() => nav.ir({ r: 'config' })}>
+          Ritmo de estudo: <b>{rt.rotulo}</b> ({rt.questoes} questões por pílula) · ajustar
+        </button>
       </div>
 
       {m.avisos.map((a) => (

@@ -52,15 +52,58 @@ export const DEFAULT_CONFIG: Config = {
   vozRate: 1.05
 };
 
+const CHAVE_ESPELHO = 'painel-prova-config';
+
+/** Cópia da configuração (sem segredos) no localStorage: se o IndexedDB vier vazio ou falhar, nada se perde. */
+function lerEspelho(): Partial<Config> | undefined {
+  try {
+    const t = localStorage.getItem(CHAVE_ESPELHO);
+    return t ? (JSON.parse(t) as Partial<Config>) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function gravarEspelho(c: Config) {
+  try {
+    localStorage.setItem(CHAVE_ESPELHO, JSON.stringify({ ...c, apiKey: undefined, ghToken: undefined }));
+  } catch {
+    /* armazenamento indisponível: segue só com o IndexedDB */
+  }
+}
+
+export function apagarEspelho() {
+  try { localStorage.removeItem(CHAVE_ESPELHO); } catch { /* ignora */ }
+}
+
 export async function getConfig(): Promise<Config> {
-  const c = await db.config.get('cfg');
+  let c: Config | undefined;
+  try {
+    c = await db.config.get('cfg');
+  } catch {
+    c = undefined;
+  }
+  if (!c) {
+    const esp = lerEspelho();
+    if (esp?.onboarding) {
+      const restaurada = { ...DEFAULT_CONFIG, ...esp, id: 'cfg' as const };
+      try { await db.config.put(restaurada); } catch { /* ignora */ }
+      return restaurada;
+    }
+  } else if (c.onboarding && !lerEspelho()?.onboarding) {
+    gravarEspelho({ ...DEFAULT_CONFIG, ...c });
+  }
   return { ...DEFAULT_CONFIG, ...(c ?? {}) };
 }
 
 export async function saveConfig(patch: Partial<Config>): Promise<Config> {
   const atual = await getConfig();
   const novo = { ...atual, ...patch, id: 'cfg' as const };
-  await db.config.put(novo);
+  gravarEspelho(novo);
+  try {
+    await db.config.put(novo);
+  } catch {
+    /* sem IndexedDB: a configuração fica no espelho */
+  }
   return novo;
 }
 

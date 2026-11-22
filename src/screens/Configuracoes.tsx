@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNav } from '../App';
-import { db, exportarTudo, getConfig, importarTudo, saveConfig } from '../db';
+import { apagarEspelho, db, exportarTudo, getConfig, importarTudo, saveConfig } from '../db';
+import { RITMOS, type Ritmo } from '../lib/ritmo';
 import { BLOCOS } from '../data/edital';
 import { useAsync, baixarArquivo, num } from '../lib/hooks';
 import { baixarBackup, enviarBackup } from '../lib/github';
@@ -66,10 +67,31 @@ export function Configuracoes() {
   return (
     <div>
       <div className="card">
+        <h2>Ritmo de estudo</h2>
+        <p className="small muted" style={{ marginTop: 0 }}>Muda o tamanho da missão diária e quantos cartões novos entram por dia. Pode trocar quando quiser: o algoritmo continua o mesmo.</p>
+        <div className="ritmos">
+          {(Object.keys(RITMOS) as Ritmo[]).map((k) => {
+            const r = RITMOS[k];
+            return (
+              <button key={k} className={(cfg.ritmo ?? 'normal') === k ? 'sel' : ''} onClick={() => { set({ ritmo: k, novosPorDia: r.novos }); nav.toast(`Ritmo ${r.rotulo.toLowerCase()} ativado.`); }}>
+                <b>{r.rotulo}</b>
+                <span>Pílula de ~{r.minutos} min · {r.questoes} questões · {r.novos} cartões novos/dia</span>
+                <span>{r.descricao}</span>
+              </button>
+            );
+          })}
+        </div>
+        <label>Horas reais de estudo por semana</label>
+        <div className="row" style={{ alignItems: 'center' }}>
+          <button className="btn sm" onClick={() => set({ horasSemana: Math.max(2, cfg.horasSemana - 1) })}>− 1 h</button>
+          <b style={{ fontSize: 20, minWidth: 60, textAlign: 'center' }}>{cfg.horasSemana} h</b>
+          <button className="btn sm" onClick={() => set({ horasSemana: Math.min(40, cfg.horasSemana + 1) })}>+ 1 h</button>
+        </div>
+        <p className="tiny">Cota semanal = 8 × horas = <b>{Q} questões</b> (pilar 5). Aparece no Painel de metas.</p>
+      </div>
+
+      <div className="card">
         <h2>Metas</h2>
-        <label>Horas reais de estudo por semana (do registro de 7 dias)</label>
-        <input type="number" min={2} max={40} value={cfg.horasSemana} onChange={(e) => set({ horasSemana: Math.max(2, Number(e.target.value) || 2) })} />
-        <p className="tiny">Cota semanal Q = 8 × horas = <b>{Q} questões</b> (pilar 5).</p>
         <label>Nota do diagnóstico (D) — preenchida sozinha ao lançar o diagnóstico</label>
         <input type="number" step="0.01" min={0} max={10} value={cfg.diagnostico ?? ''} onChange={(e) => set({ diagnostico: e.target.value === '' ? undefined : Number(e.target.value) })} />
         <label>Meta final de nota ponderada</label>
@@ -93,8 +115,8 @@ export function Configuracoes() {
       </div>
 
       <div className="card">
-        <h2>Autoavaliação inicial por bloco (0 a 3)</h2>
-        <p className="tiny" style={{ marginTop: 0 }}>Só afeta o ponto de partida do modelo; as respostas corrigem o resto.</p>
+        <h2>Seus dados iniciais: quanto sabe de cada bloco (0 a 3)</h2>
+        <p className="tiny" style={{ marginTop: 0 }}>São as respostas da configuração inicial. Só afetam o ponto de partida do modelo; as respostas às questões corrigem o resto. 0 = nunca estudei · 3 = resolvo questões com segurança.</p>
         <div className="grid2">
           {BLOCOS.map((b) => (
             <div key={b.id}>
@@ -160,7 +182,7 @@ export function Configuracoes() {
       <div className="card">
         <h2>Zerar tudo</h2>
         <p className="tiny">Apaga respostas, cartões, simulados e configurações deste aparelho. Faça backup antes.</p>
-        <button className="btn danger" onClick={async () => { if (confirmar('Apagar todos os dados deste aparelho?')) { await db.delete(); location.reload(); } }}>Apagar todos os dados</button>
+        <button className="btn danger" onClick={async () => { if (confirmar('Apagar todos os dados deste aparelho?')) { apagarEspelho(); await db.delete(); location.reload(); } }}>Apagar todos os dados</button>
       </div>
     </div>
   );

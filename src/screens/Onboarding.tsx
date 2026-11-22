@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { saveConfig } from '../db';
+import { importarTudo, saveConfig } from '../db';
+import { invalidarBanco } from '../store';
+import { RITMOS, type Ritmo } from '../lib/ritmo';
 import { BLOCOS } from '../data/edital';
 
 const NIVEIS = ['0 · nunca estudei', '1 · já ouvi falar', '2 · sei explicar o básico', '3 · resolvo questões com segurança'];
@@ -9,10 +11,23 @@ export function Onboarding({ onFim }: { onFim: () => void }) {
   const [passo, setPasso] = useState(0);
   const [horas, setHoras] = useState(10);
   const [auto, setAuto] = useState<Record<string, number>>({ redes: 2, web: 2, so: 1 });
+  const [ritmo, setRitmo] = useState<Ritmo>('normal');
+  const [erro, setErro] = useState('');
 
   async function concluir() {
-    await saveConfig({ horasSemana: horas, autoavaliacao: auto, onboarding: true });
+    await saveConfig({ horasSemana: horas, autoavaliacao: auto, ritmo, novosPorDia: RITMOS[ritmo].novos, onboarding: true });
     onFim();
+  }
+
+  async function restaurar(file: File) {
+    try {
+      await importarTudo(JSON.parse(await file.text()));
+      invalidarBanco();
+      await saveConfig({ onboarding: true });
+      onFim();
+    } catch (e) {
+      setErro('Não consegui restaurar: ' + (e as Error).message);
+    }
   }
 
   return (
@@ -24,6 +39,12 @@ export function Onboarding({ onFim }: { onFim: () => void }) {
           <p className="small">Você só decide uma coisa por dia: começar. O app escolhe o tópico pelo peso na prova e pelo seu ponto fraco, agenda as revisões antes de você esquecer e aprende com cada erro.</p>
           <p className="small">Tudo fica guardado neste aparelho e funciona sem internet. Faça backup semanal em Mais &gt; Configurações.</p>
           <button className="btn primary big" onClick={() => setPasso(1)}>Configurar em 1 minuto</button>
+          <p className="tiny" style={{ marginTop: 14 }}>Você só faz isto uma vez. Depois, tudo se ajusta em Mais &gt; Configurações.</p>
+          <label className="linkbtn tiny" style={{ textAlign: 'center' }}>
+            Já usei o app em outro aparelho: restaurar backup
+            <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && restaurar(e.target.files[0])} />
+          </label>
+          {erro && <p className="small">{erro}</p>}
         </div>
       )}
       {passo === 1 && (
@@ -32,6 +53,15 @@ export function Onboarding({ onFim }: { onFim: () => void }) {
           <p className="small muted">Conte o tempo de verdade, sem as horas sonhadas. A cota semanal de questões será 8 por hora (regra do pilar 5). Você pode ajustar depois do registro de 7 dias.</p>
           <input type="number" min={2} max={40} value={horas} onChange={(e) => setHoras(Math.max(2, Math.min(40, Number(e.target.value) || 2)))} />
           <p className="small">Cota semanal: <b>{Math.round((8 * horas) / 10) * 10} questões</b>.</p>
+          <h2 style={{ marginTop: 18 }}>Que ritmo diário prefere começar?</h2>
+          <div className="ritmos">
+            {(Object.keys(RITMOS) as Ritmo[]).map((k) => (
+              <button key={k} className={ritmo === k ? 'sel' : ''} onClick={() => setRitmo(k)}>
+                <b>{RITMOS[k].rotulo}</b>
+                <span>~{RITMOS[k].minutos} min · {RITMOS[k].questoes} questões</span>
+              </button>
+            ))}
+          </div>
           <button className="btn primary big" onClick={() => setPasso(2)}>Continuar</button>
         </div>
       )}

@@ -172,6 +172,7 @@ export interface Config {
   diagnostico?: number; // NP do diagnóstico (D)
   autoavaliacao: Record<string, number>; // bloco -> 0..3
   onboarding: boolean;
+  ritmo?: 'leve' | 'normal' | 'intenso'; // carga diária escolhida pelo aluno
   novosPorDia: number;
   retencao: number;
   vozRate: number;
