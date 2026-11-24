@@ -109,6 +109,7 @@ export interface Flashcard {
 export interface Revisao {
   id?: number;
   cardId: number;
+  cardUid?: string; // identificador do cartão entre aparelhos
   ts: number;
   nota: 1 | 2 | 3 | 4;
   ms: number;

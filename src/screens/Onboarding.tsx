@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { importarTudo, saveConfig } from '../db';
 import { invalidarBanco } from '../store';
 import { RITMOS, type Ritmo } from '../lib/ritmo';
+import { SyncCard } from '../components/SyncCard';
+import { getConfig } from '../db';
+import { sincronizarAgora } from '../sync/servico';
 import { BLOCOS } from '../data/edital';
 
 const NIVEIS = ['0 · nunca estudei', '1 · já ouvi falar', '2 · sei explicar o básico', '3 · resolvo questões com segurança'];
@@ -39,12 +42,24 @@ export function Onboarding({ onFim }: { onFim: () => void }) {
           <p className="small">Você só decide uma coisa por dia: começar. O app escolhe o tópico pelo peso na prova e pelo seu ponto fraco, agenda as revisões antes de você esquecer e aprende com cada erro.</p>
           <p className="small">Tudo fica guardado neste aparelho e funciona sem internet. Faça backup semanal em Mais &gt; Configurações.</p>
           <button className="btn primary big" onClick={() => setPasso(1)}>Configurar em 1 minuto</button>
+          <button className="btn big" style={{ marginTop: 8, background: 'transparent', color: 'inherit', borderColor: 'rgba(255,255,255,.4)' }} onClick={() => setPasso(9)}>Já uso em outro aparelho: entrar na conta</button>
           <p className="tiny" style={{ marginTop: 14 }}>Você só faz isto uma vez. Depois, tudo se ajusta em Mais &gt; Configurações.</p>
           <label className="linkbtn tiny" style={{ textAlign: 'center' }}>
             Já usei o app em outro aparelho: restaurar backup
             <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && restaurar(e.target.files[0])} />
           </label>
           {erro && <p className="small">{erro}</p>}
+        </div>
+      )}
+      {passo === 9 && (
+        <div>
+          <SyncCard aoEntrar={async () => {
+            await sincronizarAgora();
+            const c = await getConfig();
+            if (c.onboarding) onFim();
+            else setPasso(1);
+          }} />
+          <button className="btn ghost" onClick={() => setPasso(0)}>Voltar</button>
         </div>
       )}
       {passo === 1 && (

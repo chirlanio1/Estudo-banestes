@@ -18,8 +18,8 @@ export class EstudoDB extends Dexie {
   questoesExtra!: Table<Questao, string>;
   kv!: Table<{ k: string; v: unknown }, string>;
 
-  constructor() {
-    super('painel-prova');
+  constructor(nome = 'painel-prova') {
+    super(nome);
     this.version(1).stores({
       attempts: '++id, qid, topico, bloco, ts, sessao, modo',
       qstate: 'qid',
@@ -34,6 +34,92 @@ export class EstudoDB extends Dexie {
       config: 'id',
       questoesExtra: 'id, topico, origem',
       kv: 'k'
+    });
+    // v2: identificador universal (uid) nas tabelas de id automático, para sincronizar entre aparelhos
+    this.version(2)
+      .stores({
+        attempts: '++id, qid, topico, bloco, ts, sessao, modo, uid',
+        cards: '++id, topico, fonte, card.due, introduzido, qid, uid',
+        revisoes: '++id, cardId, ts, uid',
+        simulados: '++id, data, numero, uid',
+        eventos: '++id, ts, tipo, uid',
+        pegadinhas: '++id, qid, ts, uid'
+      })
+      .upgrade(async (tx) => {
+        for (const t of TABELAS_AUTO) {
+          await tx.table(t).toCollection().modify((o: any) => {
+            if (!o.uid) o.uid = novoUid();
+          });
+        }
+        const cards = await tx.table('cards').toArray();
+        const uidDe = new Map(cards.map((c: any) => [c.id, c.uid]));
+        await tx.table('revisoes').toCollection().modify((r: any) => {
+          if (!r.cardUid) r.cardUid = uidDe.get(r.cardId);
+        });
+      });
+    instalarRastreio(this);
+  }
+}
+
+/** Tabelas com id numérico automático: entre aparelhos, o registro é identificado pelo uid. */
+export const TABELAS_AUTO = ['attempts', 'cards', 'revisoes', 'simulados', 'eventos', 'pegadinhas'] as const;
+/** Tabelas com chave própria (texto). */
+export const TABELAS_CHAVE: Record<string, string> = { qstate: 'qid', mastery: 'topico', sessoes: 'id', dias: 'data', config: 'id', questoesExtra: 'id', kv: 'k' };
+/** Chaves do kv que só fazem sentido neste aparelho. */
+export const KV_LOCAL = new Set(['simulado-atual']);
+
+export function novoUid(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+
+/** Estado compartilhado do rastreio de mudanças (usado pelo motor de sincronização). */
+export const rastreio = {
+  aplicandoRemoto: false,
+  aoMudar: null as null | (() => void),
+  apagados(): { tabela: string; chave: string; at: number }[] {
+    try { return JSON.parse(localStorage.getItem('painel-prova-apagados') ?? '[]'); } catch { return []; }
+  },
+  registrarApagado(tabela: string, chave: string) {
+    try {
+      const l = rastreio.apagados();
+      l.push({ tabela, chave, at: Date.now() });
+      localStorage.setItem('painel-prova-apagados', JSON.stringify(l.slice(-500)));
+    } catch { /* sem localStorage */ }
+  },
+  limparApagados(ate: number) {
+    try { localStorage.setItem('painel-prova-apagados', JSON.stringify(rastreio.apagados().filter((a) => a.at > ate))); } catch { /* ignora */ }
+  }
+};
+
+export function chaveDe(tabela: string, o: any): string | undefined {
+  if ((TABELAS_AUTO as readonly string[]).includes(tabela)) return o?.uid;
+  const k = TABELAS_CHAVE[tabela];
+  return k && o?.[k] != null ? String(o[k]) : undefined;
+}
+
+/** Carimba cada criação/alteração com _at (hora local) e uid; registra exclusões. */
+function instalarRastreio(d: Dexie) {
+  const todas = [...TABELAS_AUTO, ...Object.keys(TABELAS_CHAVE)];
+  for (const t of todas) {
+    const tab = d.table(t);
+    const auto = (TABELAS_AUTO as readonly string[]).includes(t);
+    tab.hook('creating', (_pk, obj: any) => {
+      if (auto && !obj.uid) obj.uid = novoUid();
+      if (rastreio.aplicandoRemoto) return;
+      obj._at = Date.now();
+      rastreio.aoMudar?.();
+    });
+    tab.hook('updating', () => {
+      if (rastreio.aplicandoRemoto) return undefined;
+      rastreio.aoMudar?.();
+      return { _at: Date.now() };
+    });
+    tab.hook('deleting', (_pk, obj: any) => {
+      if (rastreio.aplicandoRemoto) return;
+      const k = chaveDe(t, obj);
+      if (k) rastreio.registrarApagado(t, k);
+      rastreio.aoMudar?.();
     });
   }
 }

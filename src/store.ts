@@ -211,7 +211,7 @@ export async function revisarCartao(c: Flashcard, nota: Nota, ms: number) {
     await db.kv.put({ k, v: v + 1 });
   }
   await db.cards.update(c.id!, { card, introduzido: true });
-  await db.revisoes.add({ cardId: c.id!, ts: Date.now(), nota, ms });
+  await db.revisoes.add({ cardId: c.id!, cardUid: (c as any).uid, ts: Date.now(), nota, ms });
 }
 
 // ---------- Sessões e pontos ----------

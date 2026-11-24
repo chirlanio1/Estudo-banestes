@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Caminhos relativos: o app funciona em qualquer endereço (o repositório se chama Estudo-banestes, com E maiúsculo).
 export default defineConfig({
   base: './',
-  define: { __APP_VERSION__: JSON.stringify('1.1.0') },
+  define: { __APP_VERSION__: JSON.stringify('1.2.0') },
   plugins: [
     react(),
     VitePWA({

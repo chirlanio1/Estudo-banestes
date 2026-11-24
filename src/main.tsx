@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import './styles.css';
+import { iniciarSync } from './sync/servico';
 
 registerSW({ immediate: true });
 
 // pede ao navegador para não apagar os dados do app quando faltar espaço
 if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+
+iniciarSync().catch(() => {});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

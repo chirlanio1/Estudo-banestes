@@ -1,6 +1,7 @@
 import { useNav } from '../App';
 import { db, getConfig } from '../db';
 import { ritmoDe } from '../lib/ritmo';
+import { quandoTexto, useStatusSync } from '../components/SyncCard';
 import { missaoDoDia } from '../engine/missions';
 import { nivelDe, semanaAtual, sequencia } from '../engine/gamification';
 import { diasAte, hojeISO } from '../engine/scoring';
@@ -10,6 +11,7 @@ import { DATAS } from '../data/edital';
 
 export function Hoje() {
   const nav = useNav();
+  const sync = useStatusSync();
   const [dados, reload] = useAsync(async () => {
     const [m, pts, dias, hojeLog, cfg] = await Promise.all([missaoDoDia(), pontosTotais(), diasCumpridos(), db.dias.get(hojeISO()), getConfig()]);
     return { m, pts, dias, hojeLog, cfg };
@@ -60,6 +62,11 @@ export function Hoje() {
         )}
         <button className="linkbtn tiny" onClick={() => nav.ir({ r: 'config' })}>
           Ritmo de estudo: <b>{rt.rotulo}</b> ({rt.questoes} questões por pílula) · ajustar
+        </button>
+        <button className="linkbtn tiny" style={{ marginTop: 0 }} onClick={() => nav.ir({ r: 'config' })}>
+          {sync.tipo === 'ok'
+            ? sync.erro ? 'Sincronização pendente (sem conexão) · ver' : sync.sincronizando ? 'Sincronizando com seus aparelhos…' : `Sincronizado ${quandoTexto(sync.ultima)}`
+            : 'Dados só neste aparelho · conectar conta'}
         </button>
       </div>
 

@@ -63,8 +63,16 @@ export function App() {
   const [msg, setMsg] = useState<string | null>(null);
   const rota = pilha[pilha.length - 1];
 
+  const [versao, setVersao] = useState(0);
   useEffect(() => {
     getConfig().then((c) => setPronto(c.onboarding));
+    // dados chegaram de outro aparelho: recarrega a tela atual (nunca no meio de missão ou simulado)
+    const f = () => {
+      getConfig().then((c) => c.onboarding && setPronto(true));
+      setVersao((v) => v + 1);
+    };
+    window.addEventListener('painel-dados-mudaram', f);
+    return () => window.removeEventListener('painel-dados-mudaram', f);
   }, []);
 
   useEffect(() => {
@@ -114,7 +122,7 @@ export function App() {
           )}
           <h1>{TITULOS[rota.r]}</h1>
         </header>
-        <main key={pilha.length + rota.r}>{tela}</main>
+        <main key={pilha.length + rota.r + (imersiva || rota.r === 'simulado' ? '' : ':' + versao)}>{tela}</main>
         {!imersiva && (
           <nav className="nav" aria-label="Navegação principal">
             {ABAS.map((a) => (

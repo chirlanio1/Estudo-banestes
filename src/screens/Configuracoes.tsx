@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNav } from '../App';
 import { apagarEspelho, db, exportarTudo, getConfig, importarTudo, saveConfig } from '../db';
 import { RITMOS, type Ritmo } from '../lib/ritmo';
+import { SyncCard } from '../components/SyncCard';
 import { BLOCOS } from '../data/edital';
 import { useAsync, baixarArquivo, num } from '../lib/hooks';
-import { baixarBackup, enviarBackup } from '../lib/github';
 import { invalidarBanco } from '../store';
 import type { Config } from '../types';
 
@@ -12,7 +12,6 @@ export function Configuracoes() {
   const nav = useNav();
   const [cfg, reload] = useAsync(() => getConfig());
   const [qb, reloadQb] = useAsync(async () => ((await db.kv.get('questoesBloco'))?.v as Record<string, number>) ?? {});
-  const [gh, setGh] = useState({ token: '', repo: '' });
   const [msg, setMsg] = useState('');
   if (!cfg || !qb) return null;
 
@@ -40,32 +39,12 @@ export function Configuracoes() {
     }
   }
 
-  async function syncEnviar() {
-    try {
-      setMsg('Enviando…');
-      const b = await exportarTudo();
-      await enviarBackup(cfg!.ghToken!, cfg!.ghRepo!, JSON.stringify(b));
-      await saveConfig({ ultimoSyncGitHub: Date.now(), ultimoBackup: Date.now() });
-      setMsg('Backup enviado ao GitHub.');
-      reload();
-    } catch (e) { setMsg((e as Error).message); }
-  }
-  async function syncBaixar() {
-    if (!confirmar('Isto substitui os dados deste aparelho pelos do GitHub. Continuar?')) return;
-    try {
-      setMsg('Baixando…');
-      await importarTudo(JSON.parse(await baixarBackup(cfg!.ghToken!, cfg!.ghRepo!)));
-      invalidarBanco();
-      setMsg('Dados restaurados do GitHub.');
-      reload();
-    } catch (e) { setMsg((e as Error).message); }
-  }
-
   const Q = Math.round((8 * cfg.horasSemana) / 10) * 10;
   const somaE = BLOCOS.filter((b) => b.prova === 'E').reduce((a, b) => a + (qb[b.id] ?? b.questoes), 0);
 
   return (
     <div>
+      <SyncCard />
       <div className="card">
         <h2>Ritmo de estudo</h2>
         <p className="small muted" style={{ marginTop: 0 }}>Muda o tamanho da missão diária e quantos cartões novos entram por dia. Pode trocar quando quiser: o algoritmo continua o mesmo.</p>
@@ -144,7 +123,7 @@ export function Configuracoes() {
 
       <div className="card">
         <h2>Backup</h2>
-        <p className="small">Os dados ficam só neste aparelho. Faça backup todo domingo: se o navegador for limpo, o progresso se perde.</p>
+        <p className="small">Com a conta conectada, os dados também ficam na nuvem. O arquivo de backup continua útil como cópia extra.</p>
         <p className="tiny">Último backup: {cfg.ultimoBackup ? new Date(cfg.ultimoBackup).toLocaleString('pt-BR') : 'nunca'}</p>
         <div className="row">
           <button className="btn primary" onClick={exportar}>Exportar backup (arquivo)</button>
@@ -153,36 +132,13 @@ export function Configuracoes() {
             <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && importar(e.target.files[0])} />
           </label>
         </div>
-      </div>
-
-      <div className="card">
-        <h2>Sincronizar com o GitHub (opcional)</h2>
-        <p className="small muted">Guarda o backup num repositório <b>privado</b> seu, para passar os dados entre tablet e celular. Crie um repositório privado (ex.: <code>estudo-dados</code>) e um token “fine-grained” com permissão <i>Contents: Read and write</i> só nele.</p>
-        {cfg.ghToken && cfg.ghRepo ? (
-          <>
-            <p className="small">Conectado a <b>{cfg.ghRepo}</b>. Último envio: {cfg.ultimoSyncGitHub ? new Date(cfg.ultimoSyncGitHub).toLocaleString('pt-BR') : 'nunca'}.</p>
-            <div className="row">
-              <button className="btn primary" onClick={syncEnviar}>Enviar agora</button>
-              <button className="btn" onClick={syncBaixar}>Baixar do GitHub</button>
-              <button className="btn ghost danger" onClick={() => set({ ghToken: undefined, ghRepo: undefined })}>Desconectar</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <label>Repositório (usuario/nome)</label>
-            <input type="text" value={gh.repo} placeholder="chirlanio1/estudo-dados" onChange={(e) => setGh({ ...gh, repo: e.target.value.trim() })} />
-            <label>Token</label>
-            <input type="password" value={gh.token} placeholder="github_pat_..." onChange={(e) => setGh({ ...gh, token: e.target.value.trim() })} autoComplete="off" />
-            <button className="btn" style={{ marginTop: 8 }} disabled={!gh.repo.includes('/') || !gh.token} onClick={() => set({ ghRepo: gh.repo, ghToken: gh.token })}>Salvar</button>
-          </>
-        )}
         {msg && <p className="small">{msg}</p>}
       </div>
 
       <div className="card">
         <h2>Zerar tudo</h2>
-        <p className="tiny">Apaga respostas, cartões, simulados e configurações deste aparelho. Faça backup antes.</p>
-        <button className="btn danger" onClick={async () => { if (confirmar('Apagar todos os dados deste aparelho?')) { apagarEspelho(); await db.delete(); location.reload(); } }}>Apagar todos os dados</button>
+        <p className="tiny">Apaga respostas, cartões, simulados e configurações deste aparelho. Se você estiver conectado à conta, tudo volta da nuvem na próxima abertura.</p>
+        <button className="btn danger" onClick={async () => { if (confirmar('Apagar todos os dados deste aparelho?')) { apagarEspelho(); Object.keys(localStorage).filter((k) => k.startsWith('painel-prova-sync-')).forEach((k) => localStorage.removeItem(k)); await db.delete(); location.reload(); } }}>Apagar todos os dados</button>
       </div>
     </div>
   );
